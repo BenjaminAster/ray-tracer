@@ -117,7 +117,7 @@ context.configure({
 	format,
 });
 
-let /** @type {Tuple<number, 3>} */ cameraPosition = [0, 0, -4];
+let /** @type {Tuple<number, 3>} */ cameraPosition = [-4, 0, 0];
 let /** @type {Tuple<number, 2>} */ cameraRotation = [0, 0];
 
 {
@@ -129,8 +129,8 @@ let /** @type {Tuple<number, 2>} */ cameraRotation = [0, 0];
 
 		{
 			const anglePerDelta = Math.PI / 180 / 10;
-			if (pressedKeys.has("ArrowLeft")) cameraRotation[0] -= anglePerDelta * delta;
-			else if (pressedKeys.has("ArrowRight")) cameraRotation[0] += anglePerDelta * delta;
+			if (pressedKeys.has("ArrowLeft")) cameraRotation[0] += anglePerDelta * delta;
+			else if (pressedKeys.has("ArrowRight")) cameraRotation[0] -= anglePerDelta * delta;
 
 			if (pressedKeys.has("ArrowUp")) cameraRotation[1] += anglePerDelta * delta;
 			else if (pressedKeys.has("ArrowDown")) cameraRotation[1] -= anglePerDelta * delta;
@@ -142,19 +142,19 @@ let /** @type {Tuple<number, 2>} */ cameraRotation = [0, 0];
 			else if (pressedKeys.has("e")) cameraPosition[2] -= speedPerDelta * delta;
 
 			if (pressedKeys.has("w")) {
-				cameraPosition[0] += Math.sin(cameraRotation[0]) * speedPerDelta * delta;
-				cameraPosition[1] += Math.cos(cameraRotation[0]) * speedPerDelta * delta;
+				cameraPosition[0] += Math.cos(cameraRotation[0]) * speedPerDelta * delta;
+				cameraPosition[1] += Math.sin(cameraRotation[0]) * speedPerDelta * delta;
 			} else if (pressedKeys.has("s")) {
-				cameraPosition[0] -= Math.sin(cameraRotation[0]) * speedPerDelta * delta;
-				cameraPosition[1] -= Math.cos(cameraRotation[0]) * speedPerDelta * delta;
+				cameraPosition[0] -= Math.cos(cameraRotation[0]) * speedPerDelta * delta;
+				cameraPosition[1] -= Math.sin(cameraRotation[0]) * speedPerDelta * delta;
 			}
 
 			if (pressedKeys.has("a")) {
-				cameraPosition[0] -= Math.cos(cameraRotation[0]) * speedPerDelta * delta;
-				cameraPosition[1] += Math.sin(cameraRotation[0]) * speedPerDelta * delta;
+				cameraPosition[0] -= Math.sin(cameraRotation[0]) * speedPerDelta * delta;
+				cameraPosition[1] += Math.cos(cameraRotation[0]) * speedPerDelta * delta;
 			} else if (pressedKeys.has("d")) {
-				cameraPosition[0] += Math.cos(cameraRotation[0]) * speedPerDelta * delta;
-				cameraPosition[1] -= Math.sin(cameraRotation[0]) * speedPerDelta * delta;
+				cameraPosition[0] += Math.sin(cameraRotation[0]) * speedPerDelta * delta;
+				cameraPosition[1] -= Math.cos(cameraRotation[0]) * speedPerDelta * delta;
 			}
 		}
 
