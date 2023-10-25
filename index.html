@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content" />
+	<meta name="color-scheme" content="dark light" />
+	<meta name="robots" content="all" />
+	<meta name="author" content="Benjamin Aster" />
+	<meta name="description" content="A WebGPU ray tracer" />
+	<!-- <meta name="repository" content="https://github.com/BenjaminAster/REPOSITORY" type="image/svg+xml" /> -->
+	<!-- <meta property="og:image" content="https://benjaminaster.com/NAME/assets/icon.png" /> -->
+
+	<!-- <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" /> -->
+	<!-- <link rel="icon" href="./assets/icon.png" type="image/png" sizes="any" /> -->
+	<!-- <link rel="manifest" href="./app.webmanifest" /> -->
+
+	<title>WebGPU Ray Tracer</title>
+
+	<!-- <link rel="stylesheet" href="./main.css" /> -->
+
+	<script type="module" src="./script.js"></script>
+	<link rel="prefetch" as="worker" href="./worker.js" />
+	<link rel="prefetch" as="fetch" href="./shader.wgsl" />
+
+	<style>
+		:root {
+			font-family: system-ui, sans-serif;
+			line-height: 1.5;
+			overflow-wrap: break-word;
+			-webkit-text-size-adjust: none;
+			text-size-adjust: none;
+			-webkit-tap-highlight-color: transparent;
+		}
+
+		body {
+			box-sizing: border-box;
+			min-block-size: 100dvb;
+			margin: 0;
+			display: flex;
+			flex-direction: column;
+		}
+
+		canvas {
+			flex-grow: 1;
+			flex-basis: 0;
+			min-block-size: 0;
+			background-color: black;
+		}
+	</style>
+</head>
+
+<body>
+	<noscript>
+		Please enable JavaScript to view this site.
+		<hr />
+	</noscript>
+
+	<canvas></canvas>
+</body>
+
+</html>
