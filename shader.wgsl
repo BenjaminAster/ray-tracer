@@ -63,10 +63,15 @@ fn fragment_main(@location(0) fragment_position: vec2<f32>) -> @location(0) vec4
 	let c: f32 = cam.x * cam.x + cam.y * cam.y + cam.z * cam.z - 1;
 	let discriminant: f32 = b * b - 4 * a * c;
 
-	if (discriminant > 0) {
-		return vec4<f32>(1.0, 1.0, 1.0, 1.0);
-	} else {
-		return vec4<f32>(0.0, 0.0, 0.0, 1.0);
+	if (discriminant > 0.0) {
+		let t: f32 = (-b - sqrt(discriminant)) / 2 * a;
+		if (t > 0.0) {
+			// let intersection_point: f32 = cam + t * ray;
+			let value = 1.0 / t;
+			return vec4<f32>(value, value, value, 1.0);
+		}
 	}
+
+	return vec4<f32>(0.0, 0.0, 0.0, 1.0);
 }
 
