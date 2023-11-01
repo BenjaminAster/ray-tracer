@@ -23,6 +23,19 @@ window.addEventListener("keyup", (event) => {
 	worker.postMessage({ type: "keyup", key: event.key });
 });
 
+{
+	let lightTheme = false;
+	const query = window.matchMedia("(prefers-color-scheme: light)");
+	const update = () => {
+		lightTheme = query.matches;
+		worker.postMessage({
+			type: "set-theme",
+			lightTheme,
+		});
+	};
+	query.addEventListener("change", update);
+	update();
+}
 
 window.addEventListener("resize", () => {
 	worker.postMessage({

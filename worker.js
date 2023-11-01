@@ -3,8 +3,15 @@
 /// <reference types="better-typescript/worker" />
 /// <reference types="@webgpu/types" />
 
+const _expose = (objects) => {
+	for (const [name, value] of Object.entries(objects)) {
+		globalThis[name] = value;
+	}
+}
+
 let /** @type {OffscreenCanvas} */ canvas;
 let /** @type {Set<string>} */ pressedKeys = new Set();
+let lightTheme = false;
 
 await new Promise((resolve) => self.addEventListener("message", ({ data }) => {
 	$switch: switch (data.type) {
@@ -26,6 +33,10 @@ await new Promise((resolve) => self.addEventListener("message", ({ data }) => {
 			pressedKeys.delete(data.key);
 			break $switch;
 		}
+		case ("set-theme"): {
+			lightTheme = data.lightTheme;
+			break $switch;
+		}
 	}
 }));
 
@@ -39,48 +50,38 @@ const { adapter, device } = await (async () => {
 
 
 if (!device) {
-	// document.querySelector("#webgpu-not-supported").hidden = false;
 	throw new Error("Your browser does not support WebGPU.");
 }
 
-
-
 self.postMessage({ type: "ready" });
 
-// window.addEventListener("error", (event) => {
-// 	const error = [event.message, ...(event.error.stack.split("\n").slice(event.error.stack.startsWith("@") ? 0 : 1))].join("\n");
-// 	Object.assign(document.querySelector("#error"), {
-// 		textContent: error,
-// 		hidden: false,
-// 	});
-// });
-
 const context = canvas.getContext("webgpu");
-
-// $: {
-// 	const isFirefox = Boolean(!GPU.prototype.getPreferredCanvasFormat && window.CSSMozDocumentRule);
-// 	if (!isFirefox) break $;
-// 	const firefoxPolyfills = await import("./firefox-polyfills.js");
-// 	firefoxPolyfills.initialize({ context, adapter });
-// }
-
 const format = navigator.gpu.getPreferredCanvasFormat();
 
-const uniformBufferSize = Math.ceil((
-	+ 4 * Float32Array.BYTES_PER_ELEMENT // camera: vec3<f32>
-	+ 2 * Float32Array.BYTES_PER_ELEMENT // rotation: vec2<f32>
-	+ 1 * Float32Array.BYTES_PER_ELEMENT // aspect_ratio: f32
-	// + 1 * Float32Array.BYTES_PER_ELEMENT // width: u32
-	// + 1 * Float32Array.BYTES_PER_ELEMENT // height: u32
-) / 8) * 8;
+const structBufferSize = (/** @type {number[]} */ ...sizes) => {
+	sizes = sizes.map(size => 2 ** (Math.ceil(Math.log2(size))));
+	let size = sizes.reduce((prev, next) => prev + next, 0);
+	let maxSize = Math.max(...sizes);
+	return Math.ceil(size / maxSize) * maxSize;
+}
+
+const uniformBufferSize = structBufferSize(
+	4 * Float32Array.BYTES_PER_ELEMENT, // camera: vec3<f32>
+	2 * Float32Array.BYTES_PER_ELEMENT, // rotation: vec2<f32>
+	2 * Float32Array.BYTES_PER_ELEMENT, // canvas_dimensions: vec2<f32>
+	1 * Uint32Array.BYTES_PER_ELEMENT, // light_theme: u32
+	1 * Float32Array.BYTES_PER_ELEMENT, // fov_scale: f32
+);
 
 const uniformBuffer = device.createBuffer({
 	size: uniformBufferSize,
 	usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 });
 
+const shaderPath = import.meta.resolve("./shader.wgsl");
+
 const shaderModule = device.createShaderModule({
-	code: await (await self.fetch(import.meta.resolve("./shader.wgsl"))).text(),
+	code: await (await self.fetch(shaderPath)).text(),
 });
 
 const pipeline = await device.createRenderPipelineAsync({
@@ -111,14 +112,16 @@ const bindGroup = device.createBindGroup({
 	],
 });
 
+_expose({ device, adapter, format, pipeline, bindGroup, shaderModule });
 
 context.configure({
 	device,
 	format,
 });
 
-let /** @type {Tuple<number, 3>} */ cameraPosition = [-4, 0, 0];
+let /** @type {Tuple<number, 3>} */ cameraPosition = [-4, 0, 4];
 let /** @type {Tuple<number, 2>} */ cameraRotation = [0, 0];
+let fov_scale = 0.5;
 
 {
 	let previousTimestamp = performance.now();
@@ -163,12 +166,10 @@ let /** @type {Tuple<number, 2>} */ cameraRotation = [0, 0];
 			new Float32Array(arrayBuffer, 0).set([
 				...[...cameraPosition, 0],
 				...cameraRotation,
-				canvas.width / canvas.height,
+				...[canvas.width, canvas.height],
+				+lightTheme,
+				fov_scale,
 			]);
-			// new Uint32Array(arrayBuffer, 24).set([
-			// 	canvas.width,
-			// 	canvas.height,
-			// ]);
 			device.queue.writeBuffer(uniformBuffer, 0, arrayBuffer);
 
 			const encoder = device.createCommandEncoder();
@@ -199,4 +200,9 @@ let /** @type {Tuple<number, 2>} */ cameraRotation = [0, 0];
 
 export { };
 
-//# sourceMappingURL=data:,{"version":3,"mappings":"","sources":["./shader.wgsl"]}
+import(URL.createObjectURL(new Blob([
+	`//# sourceMappingURL=data:application/json,${self.encodeURIComponent(JSON.stringify({
+		version: 3, mappings: "", sources: [shaderPath]
+	}))}`
+], { type: "text/javascript;charset=utf-8" })));
+

@@ -4,14 +4,13 @@
 <head>
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content" />
-	<meta name="color-scheme" content="dark light" />
 	<meta name="robots" content="all" />
 	<meta name="author" content="Benjamin Aster" />
 	<meta name="description" content="A WebGPU ray tracer" />
-	<!-- <meta name="repository" content="https://github.com/BenjaminAster/REPOSITORY" type="image/svg+xml" /> -->
+	<!-- <meta name="repository" content="https://github.com/BenjaminAster/REPOSITORY" /> -->
 	<!-- <meta property="og:image" content="https://benjaminaster.com/NAME/assets/icon.png" /> -->
 
-	<!-- <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" /> -->
+	<!-- <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" sizes="512x512" /> -->
 	<!-- <link rel="icon" href="./assets/icon.png" type="image/png" sizes="any" /> -->
 	<!-- <link rel="manifest" href="./app.webmanifest" /> -->
 
@@ -25,6 +24,7 @@
 
 	<style>
 		:root {
+			color-scheme: dark light;
 			font-family: system-ui, sans-serif;
 			line-height: 1.5;
 			overflow-wrap: break-word;
@@ -41,6 +41,16 @@
 			flex-direction: column;
 		}
 
+		.info-overlay {
+			position: absolute;
+			inset: 0 auto auto 0;
+			inline-size: fit-content;
+			padding: .4em .7em;
+			background-color: #1118;
+			border-radius: .3em;
+			margin: .5em;
+		}
+
 		canvas {
 			flex-grow: 1;
 			flex-basis: 0;
@@ -55,6 +65,10 @@
 		Please enable JavaScript to view this site.
 		<hr />
 	</noscript>
+
+	<div class="info-overlay">
+		Use W/A/S/D/Q/E to move the camera and arrow keys to pan.
+	</div>
 
 	<canvas></canvas>
 </body>
