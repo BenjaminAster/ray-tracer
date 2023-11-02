@@ -3,6 +3,8 @@ alias float2 = vec2<f32>;
 alias float3 = vec3<f32>;
 alias float4 = vec4<f32>;
 
+alias color = float3;
+
 alias ObjectType = u32;
 const e_CAMERA: ObjectType = 0;
 const e_SPHERE: ObjectType = 1;
@@ -25,10 +27,14 @@ struct Ray {
 	dir: float3,
 }
 
+struct ObjectInfo {
+	object_type: ObjectType,
+	index: u32,
+}
+
 struct RayInfo {
 	ray: Ray,
-	source_object_type: ObjectType,
-	source_object_index: u32,
+	source_object: ObjectInfo,
 }
 
 struct Sphere {
@@ -40,6 +46,8 @@ struct Sphere {
 struct HitInfo {
 	distance: f32,
 	position: float3,
+	normal_vector: float3,
+	// object: ObjectInfo,
 	did_hit: bool,
 	color: float3,
 }
@@ -58,6 +66,7 @@ const spheres = array<Sphere, 6>(
 );
 const floor_height: f32 = 0.0;
 const antialiasing_samples: u32 = 2;
+const max_bounces: u32 = 5;
 
 @vertex
 fn vertex_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
@@ -117,7 +126,8 @@ fn ray_hits_sphere(ray: Ray, sphere: Sphere) -> HitInfo {
 		let distance: f32 = (-b - sqrt(discriminant)) / (2 * a);
 		if distance >= 0 {
 			let intersection_point: float3 = ray.origin + distance * ray.dir;
-			return HitInfo(distance, intersection_point, true, sphere.color);
+			let normal_vector: float3 = normalize(intersection_point - sphere.position);
+			return HitInfo(distance, intersection_point, normal_vector, true, sphere.color);
 		}
 	}
 	{
@@ -125,6 +135,44 @@ fn ray_hits_sphere(ray: Ray, sphere: Sphere) -> HitInfo {
 		hit_info.did_hit = false;
 		return hit_info;
 	}
+}
+
+fn trace_ray(ray: Ray) -> color {
+	var current_ray_info = RayInfo(ray, ObjectInfo(e_CAMERA, 0));
+	for (var bounce_iteration: u32 = 0; bounce_iteration < max_bounces; bounce_iteration++) {
+		let current_ray = current_ray_info.ray;
+		var closest_hit = HitInfo();
+		closest_hit.did_hit = false;
+
+		var object_info = ObjectInfo();
+
+		for (var i: u32 = 0; i < 6; i++) {
+			if (current_ray_info.source_object.object_type == e_SPHERE && current_ray_info.source_object.index == i) { continue; }
+			let sphere = spheres[i];
+			let hit_info = ray_hits_sphere(current_ray, sphere);
+			if hit_info.did_hit && (!closest_hit.did_hit || bool(hit_info.distance < closest_hit.distance)) {
+				closest_hit = hit_info;
+				object_info = ObjectInfo(e_SPHERE, i);
+			}
+		}
+
+		{
+			if (closest_hit.did_hit) {
+				let specular_ray: Ray = Ray(closest_hit.position, reflect(current_ray.dir, closest_hit.normal_vector));
+				current_ray_info = RayInfo(specular_ray, object_info);
+			} else {
+				let floorDistance: f32 = (floor_height - current_ray.origin.z) / current_ray.dir.z;
+				if (floorDistance > 0) {
+					let intersection_point: float3 = current_ray.origin + floorDistance * current_ray.dir;
+					var color: float3 = fade_color(select(black, white, bool((i32(floor(intersection_point.x)) + i32(floor(intersection_point.y))) % 2)), floorDistance);
+					return color;
+				} else {
+					return select(black, white, bool(uniforms.light_theme));
+				}
+			}
+		}
+	}
+	return select(black, white, bool(uniforms.light_theme));
 }
 
 @fragment
@@ -143,36 +191,8 @@ fn fragment_main(@location(0) fragment_position: float2) -> @location(0) float4 
 				get_camera_ray_direction(uniforms.camera_rotation, fragment_position + antialiasing_offset),
 			);
 
-			let rayInfo = RayInfo(ray, e_CAMERA, 0);
-
-			var closest_hit: HitInfo;
-			closest_hit.did_hit = false;
-
-			for (var i = 0; i < 6; i++) {
-				let sphere = spheres[i];
-				let hit_info = ray_hits_sphere(ray, sphere);
-				if hit_info.did_hit && (!closest_hit.did_hit || bool(hit_info.distance < closest_hit.distance)) {
-					closest_hit = hit_info;
-				}
-			}
-
-			{
-				var antialiasing_color: float3;
-				if (closest_hit.did_hit) {
-					var color: float3 = fade_color(closest_hit.color, closest_hit.distance);
-					antialiasing_color = color;
-				} else {
-					let floorDistance: f32 = (floor_height - ray.origin.z) / ray.dir.z;
-					if (floorDistance > 0) {
-						let intersection_point: float3 = ray.origin + floorDistance * ray.dir;
-						var color: float3 = fade_color(select(black, white, bool((i32(floor(intersection_point.x)) + i32(floor(intersection_point.y))) % 2)), floorDistance);
-						antialiasing_color = color;
-					} else {
-						antialiasing_color = select(black, white, bool(uniforms.light_theme));
-					}
-				}
-				pixel_colors[antialiasing_row * antialiasing_samples + antialiasing_column] = antialiasing_color;
-			}
+			let color = trace_ray(ray);
+			pixel_colors[antialiasing_row * antialiasing_samples + antialiasing_column] = color;
 		}
 	}
 
