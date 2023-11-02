@@ -61,6 +61,10 @@
 			cursor: pointer;
 		}
 
+		a {
+			color: inherit;
+		}
+
 		input[type=range] {
 			cursor: grab;
 
@@ -75,7 +79,7 @@
 			position: absolute;
 			inset: 0 auto auto 0;
 			inline-size: fit-content;
-			padding: .4em .7em;
+			padding: .4rem .7rem;
 			background-color: #111a;
 			border-radius: .3em;
 			margin: .5em;
@@ -88,6 +92,14 @@
 			:is(input)[type=checkbox]#toggle-overlay:checked ~ & > :not(.cog) {
 				display: none;
 			}
+		}
+
+		#webgpu-unsupported {
+			padding: .5rem;
+			border: 1px solid red;
+			margin-block: .3rem;
+			background-color: #0005;
+			border-radius: .3rem;
 		}
 
 		.settings {
@@ -109,15 +121,33 @@
 			}
 		}
 
-		.camera-controls {
+		.bottom-bar {
 			position: absolute;
-			inset: auto auto 0 0;
+			pointer-events: none;
+			display: flex;
+			justify-content: space-between;
+			flex-wrap: wrap;
+			align-items: end;
+			inset: auto 0 0 0;
+
+			& footer {
+				padding: .1em .4em;
+				pointer-events: auto;
+				background-color: #000b;
+				border-start-start-radius: .3rem;
+			}
+		}
+
+		.camera-controls {
+			/* position: absolute; */
+			/* inset: auto auto 0 0; */
 			margin: .5rem;
 			display: grid;
 			gap: .5rem;
 			grid-template: repeat(2, 1fr) / repeat(3, 1fr);
 
 			& button.move {
+				pointer-events: auto;
 				position: relative;
 				background-color: #222e;
 				border: 1px solid #8884;
@@ -168,6 +198,11 @@
 	<div class="overlay">
 		<label class="cog" for="toggle-overlay">⚙&#xFE0F;</label>
 
+		<div id="webgpu-unsupported" hidden>
+			Your browser does not fully support WebGPU. Please use a Chromium-based browser like Google Chrome or Microsoft Edge.
+			Also, note that WebGPU support on platforms other than Windows or MacOS is still experimental and might have to be enabled manually.
+		</div>
+
 		<div class="info">
 			Use W/A/S/D/Q/E to move the camera and arrow keys to pan. <label for="toggle-overlay">&Cross;&#xFE0F;</label>
 		</div>
@@ -192,31 +227,37 @@
 		</div>
 	</div>
 
-	<div class="camera-controls">
-		<button class="move" id="move-down" title="Move down">
-			<div>⇣</div>
-			<kbd>Q</kbd>
-		</button>
-		<button class="move" id="move-forward" title="Move forward">
-			<div>↑</div>
-			<kbd>W</kbd>
-		</button>
-		<button class="move" id="move-up" title="Move up">
-			<div>⇡</div>
-			<kbd>E</kbd>
-		</button>
-		<button class="move" id="move-left" title="Move left">
-			<div>←</div>
-			<kbd>A</kbd>
-		</button>
-		<button class="move" id="move-backward" title="Move backward">
-			<div>↓</div>
-			<kbd>S</kbd>
-		</button>
-		<button class="move" id="move-right" title="Move right">
-			<div>→</div>
-			<kbd>D</kbd>
-		</button>
+	<div class="bottom-bar">
+		<div class="camera-controls">
+			<button class="move" id="move-down" title="Move down">
+				<div>⇣</div>
+				<kbd>Q</kbd>
+			</button>
+			<button class="move" id="move-forward" title="Move forward">
+				<div>↑</div>
+				<kbd>W</kbd>
+			</button>
+			<button class="move" id="move-up" title="Move up">
+				<div>⇡</div>
+				<kbd>E</kbd>
+			</button>
+			<button class="move" id="move-left" title="Move left">
+				<div>←</div>
+				<kbd>A</kbd>
+			</button>
+			<button class="move" id="move-backward" title="Move backward">
+				<div>↓</div>
+				<kbd>S</kbd>
+			</button>
+			<button class="move" id="move-right" title="Move right">
+				<div>→</div>
+				<kbd>D</kbd>
+			</button>
+		</div>
+
+		<footer>
+			<a href="https://github.com/BenjaminAster/ray-tracer">View on GitHub</a>
+		</footer>
 	</div>
 
 	<canvas></canvas>

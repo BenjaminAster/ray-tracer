@@ -12,6 +12,12 @@ const offscreenCanvas = canvas.transferControlToOffscreen();
 
 const worker = new Worker(import.meta.resolve("./worker.js"), { type: "module" });
 
+worker.addEventListener("message", (event) => {
+	if (event.data.type === "webgpu-unsupported") {
+		document.querySelector("#webgpu-unsupported").hidden = false;
+	}
+});
+
 worker.postMessage({ type: "initialize", canvas: offscreenCanvas, pixelRatio: window.devicePixelRatio }, { transfer: [offscreenCanvas] });
 
 {

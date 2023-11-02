@@ -9,6 +9,16 @@ const _expose = (objects) => {
 	}
 }
 
+const initialSeed = Math.random();
+
+const randomBySeed = (/** @type {number} */ a) => {
+	// Mulberry32 algorithm, copied from https://stackoverflow.com/a/47593316
+	let t = a += 0x6d_2b_79_f5 + initialSeed * 0x1_00;
+	t = Math.imul(t ^ t >>> 0xf, t | 1);
+	t ^= t + Math.imul(t ^ t >>> 7, t | 0x3d);
+	return ((t ^ t >>> 0xe) >>> 0) / 0x1_00_00_00_00;
+}
+
 let /** @type {OffscreenCanvas} */ canvas;
 let lightTheme = false;
 let fieldOfView = 0;
@@ -19,7 +29,7 @@ let pixelRatio = 1;
 let /** @type {Set<string>} */ pressedKeys = new Set();
 let /** @type {Set<string>} */ currentMoveDirections = new Set();
 
-let /** @type {Tuple<number, 3>} */ cameraPosition = [-4, 0, 4];
+let /** @type {Tuple<number, 3>} */ cameraPosition = [-5, 0, 5];
 let /** @type {Tuple<number, 2>} */ cameraRotation = [0, 0];
 
 await new Promise((resolve) => self.addEventListener("message", ({ data }) => {
@@ -57,14 +67,15 @@ const { adapter, device } = await (async () => {
 		const adapter = await navigator.gpu?.requestAdapter();
 		const device = await adapter?.requestDevice();
 		return { adapter, device };
-	} catch { };
+	} catch (error) {
+		console.error(error);
+	};
 })();
 
 if (!device) {
+	self.postMessage({ type: "webgpu-unsupported" });
 	throw new Error("Your browser does not support WebGPU.");
 }
-
-self.postMessage({ type: "ready" });
 
 const context = canvas.getContext("webgpu");
 const format = navigator.gpu.getPreferredCanvasFormat();
@@ -72,25 +83,23 @@ const format = navigator.gpu.getPreferredCanvasFormat();
 const roundToNextPowerOfTwo = (/** @type {number} */ number) => (2 ** (Math.ceil(Math.log2(number))));
 
 const structBufferSize = (/** @type {number[]} */ ...sizes) => {
-	sizes = sizes.map(size => roundToNextPowerOfTwo(size));
 	let size = sizes.reduce((prev, next) => prev + next, 0);
-	let maxSize = Math.max(...sizes);
-	return Math.ceil(size / maxSize) * maxSize;
+	return roundToNextPowerOfTwo(size);
 };
 
-const mergeTypedArrays = (/** @type {TypedArray[]} */ ...arrays) => {
+const mergeTypedArrays = (/** @type {ArrayBufferLike[]} */ ...arrays) => {
 	const size = structBufferSize(...arrays.map(array => array.byteLength));
 	const buffer = new Uint8Array(size);
 	let offset = 0;
 	for (const array of arrays) {
-		buffer.set(new Uint8Array(array.buffer), offset);
+		buffer.set(new Uint8Array(/** @type {TypedArray} */(array).buffer || array), offset);
 		offset += roundToNextPowerOfTwo(array.byteLength);
 	}
 	return buffer.buffer;
 }
 
 const uniformBufferSize = structBufferSize(
-	4 * Float32Array.BYTES_PER_ELEMENT, // camera: vec3<f32>
+	3 * Float32Array.BYTES_PER_ELEMENT, // camera: vec3<f32>
 	2 * Float32Array.BYTES_PER_ELEMENT, // rotation: vec2<f32>
 	2 * Float32Array.BYTES_PER_ELEMENT, // canvas_dimensions: vec2<f32>
 	1 * Uint32Array.BYTES_PER_ELEMENT, // light_theme: u32
@@ -98,6 +107,29 @@ const uniformBufferSize = structBufferSize(
 	1 * Uint32Array.BYTES_PER_ELEMENT, // max_bounces: u32
 	1 * Uint32Array.BYTES_PER_ELEMENT, // antialiasing_samples: u32
 );
+
+const sphereByteSize = structBufferSize(
+	3 * Float32Array.BYTES_PER_ELEMENT, // position: vec3<f32>
+	1 * Float32Array.BYTES_PER_ELEMENT, // radius: f32
+	3 * Float32Array.BYTES_PER_ELEMENT, // color: vec3<f32>
+);
+
+// console.log(sphereByteSize)
+
+const spheres = [
+	{ position: [0.0, 0.0, 4.0], radius: 1.0, color: [1.0, 0.5, 0.5] },
+	{ position: [2.0, 2.0, 4.0], radius: 0.6, color: [0.5, 1.0, 0.5] },
+	{ position: [2.0, -2.0, 5.0], radius: 1.5, color: [0.5, 0.5, 1.0] },
+	{ position: [-1.0, 0.0, 6.0], radius: 1.1, color: [1.0, 1.0, 0.5] },
+	{ position: [2.0, 1.0, 6.0], radius: 0.8, color: [0.5, 1.0, 1.0] },
+	{ position: [2.0, -1.0, 2.0], radius: 0.9, color: [1.0, 0.5, 1.0] },
+	{ position: [1.0, 0.0, 8.0], radius: 1.4, color: [1.0, 1.0, 1.0] },
+];
+
+const spheresBuffer = device.createBuffer({
+	size: sphereByteSize * spheres.length,
+	usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+});
 
 const uniformBuffer = device.createBuffer({
 	size: uniformBufferSize,
@@ -135,10 +167,16 @@ const bindGroup = device.createBindGroup({
 				buffer: uniformBuffer,
 			},
 		},
+		{
+			binding: 1,
+			resource: {
+				buffer: spheresBuffer,
+			},
+		},
 	],
 });
 
-_expose({ device, adapter, format, pipeline, bindGroup, shaderModule, uniformBuffer });
+_expose({ device, adapter, format, pipeline, bindGroup, shaderModule, uniformBuffer, spheresBuffer });
 
 context.configure({
 	device,
@@ -184,16 +222,31 @@ context.configure({
 		}
 
 		{
-			const buffer = mergeTypedArrays(
-				new Float32Array([...cameraPosition, 0]),
-				new Float32Array([...cameraRotation]),
-				new Float32Array([canvas.width, canvas.height]),
-				new Uint32Array([+lightTheme]),
-				new Float32Array([Math.tan(fieldOfView / 2) * 2]),
-				new Uint32Array([maxBounces]),
-				new Uint32Array([antialiasingSamplesPerPixel]),
-			);
-			device.queue.writeBuffer(uniformBuffer, 0, buffer);
+			{
+				const buffer = mergeTypedArrays(
+					new Float32Array([...cameraPosition]),
+					new Float32Array([...cameraRotation]),
+					new Float32Array([canvas.width, canvas.height]),
+					new Uint32Array([+lightTheme]),
+					new Float32Array([Math.tan(fieldOfView / 2) * 2]),
+					new Uint32Array([maxBounces]),
+					new Uint32Array([antialiasingSamplesPerPixel]),
+				);
+				device.queue.writeBuffer(uniformBuffer, 0, buffer);
+			}
+
+			{
+				for (let i = 0; i < spheres.length; i++) {
+					const sphere = self.structuredClone(spheres[i]);
+					sphere.position[2] += Math.sin((timestamp + 100) * (1 + randomBySeed(i)) / 1000);
+					const buffer = new Float32Array([
+						...sphere.position,
+						sphere.radius,
+						...sphere.color,
+					]);
+					device.queue.writeBuffer(spheresBuffer, i * sphereByteSize, buffer);
+				}
+			}
 
 			const encoder = device.createCommandEncoder();
 			const renderPass = encoder.beginRenderPass({

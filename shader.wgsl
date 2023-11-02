@@ -54,19 +54,14 @@ struct HitInfo {
 	color: float3,
 }
 
-@group(0) @binding(0) var<storage> uniforms: Uniforms;
+const BINDING_GLOBAL_STATE: u32 = 0;
+const BINDING_SPHERES: u32 = 1;
+
+@group(0) @binding(BINDING_GLOBAL_STATE) var<storage, read> global_state: Uniforms;
+@group(0) @binding(BINDING_SPHERES) var<storage, read> spheres: array<Sphere>;
 
 const white = Color(1.0, 1.0, 1.0);
 const black = Color(0.0, 0.0, 0.0);
-const spheres = array<Sphere, 7>(
-	Sphere(float3(0.0, 0.0, 3.0), 1.0, Color(1.0, 0.5, 0.5)),
-	Sphere(float3(2.0, 2.0, 3.0), 0.6, Color(0.5, 1.0, 0.5)),
-	Sphere(float3(2.0, -2.0, 4.0), 1.5, Color(0.5, 0.5, 1.0)),
-	Sphere(float3(-1.0, 0.0, 5.0), 1.1, Color(1.0, 1.0, 0.5)),
-	Sphere(float3(2.0, 1.0, 5.0), 0.8, Color(0.5, 1.0, 1.0)),
-	Sphere(float3(2.0, -1.0, 1.0), 0.9, Color(1.0, 0.5, 1.0)),
-	Sphere(float3(1.0, 0.0, 7.0), 1.4, Color(1.0, 1.0, 1.0)),
-);
 const floor_height: f32 = 0.0;
 const sky_color = Color(0.4, 0.6, 1.0);
 
@@ -101,13 +96,13 @@ fn get_camera_ray_direction(rotation: float2, pixel_position: float2) -> float3 
 		sin_rot_azimuth,
 		-cos_rot_azimuth,
 		0.0,
-	) * pixel_position.x * uniforms.fov_scale * (uniforms.canvas_dimensions.x / uniforms.canvas_dimensions.y);
+	) * pixel_position.x * global_state.fov_scale * (global_state.canvas_dimensions.x / global_state.canvas_dimensions.y);
 
 	let vertical_vector_component: float3 = float3(
 		-cos_rot_azimuth * sin_rot_elevation,
 		-sin_rot_azimuth * sin_rot_elevation,
 		cos_rot_elevation,
-	) * pixel_position.y * uniforms.fov_scale;
+	) * pixel_position.y * global_state.fov_scale;
 
 	return normalize(main_camera_vector + horizontal_vector_component + vertical_vector_component);
 }
@@ -142,7 +137,7 @@ fn ray_hits_sphere(ray: Ray, sphere: Sphere) -> HitInfo {
 fn trace_ray(ray: Ray) -> Color {
 	var current_ray_info = RayInfo(ray, ObjectInfo(e_CAMERA, 0));
 	var color = Color(1.0, 1.0, 1.0);
-	for (var bounce_iteration: u32 = 0; bounce_iteration < uniforms.max_bounces; bounce_iteration++) {
+	for (var bounce_iteration: u32 = 0; bounce_iteration < global_state.max_bounces; bounce_iteration++) {
 		let current_ray = current_ray_info.ray;
 		var closest_hit = HitInfo();
 		closest_hit.did_hit = false;
@@ -184,18 +179,18 @@ fn trace_ray(ray: Ray) -> Color {
 
 @fragment
 fn fragment_main(@location(0) fragment_position: float2, @builtin(sample_index) sample_index: u32) -> @location(0) float4 {
-	let antialiasing_samples: u32 = uniforms.antialiasing_samples;
+	let antialiasing_samples: u32 = global_state.antialiasing_samples;
 	var summed_color = Color(0.0, 0.0, 0.0);
 
 	for (var antialiasing_row: u32 = 0; antialiasing_row < antialiasing_samples; antialiasing_row++) {
 		for (var antialiasing_column: u32 = 0; antialiasing_column < antialiasing_samples; antialiasing_column++) {
 			var antialiasing_offset = float2(
-				f32(antialiasing_column) / f32(antialiasing_samples) / (uniforms.canvas_dimensions.x / 2.0),
-				f32(antialiasing_row) / f32(antialiasing_samples) / (uniforms.canvas_dimensions.y / 2.0),
+				f32(antialiasing_column) / f32(antialiasing_samples) / (global_state.canvas_dimensions.x / 2.0),
+				f32(antialiasing_row) / f32(antialiasing_samples) / (global_state.canvas_dimensions.y / 2.0),
 			);
 			var ray = Ray(
-				uniforms.camera_position,
-				get_camera_ray_direction(uniforms.camera_rotation, fragment_position + antialiasing_offset),
+				global_state.camera_position,
+				get_camera_ray_direction(global_state.camera_rotation, fragment_position + antialiasing_offset),
 			);
 
 			let color = trace_ray(ray);
