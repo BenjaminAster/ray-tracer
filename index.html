@@ -31,6 +31,7 @@
 			-webkit-text-size-adjust: none;
 			text-size-adjust: none;
 			-webkit-tap-highlight-color: transparent;
+			cursor: var(--cursor, default);
 		}
 
 		body {
@@ -41,14 +42,110 @@
 			flex-direction: column;
 		}
 
-		.info-overlay {
+		.hidden {
+			position: absolute;
+			appearance: none;
+			overflow: hidden;
+			width: 0;
+			height: 0;
+			opacity: 0;
+			pointer-events: none;
+		}
+
+		button {
+			all: unset;
+			outline: revert;
+		}
+
+		button, label {
+			cursor: pointer;
+		}
+
+		input[type=range] {
+			cursor: grab;
+
+			&:active {
+				cursor: grabbing;
+			}
+		}
+
+		.overlay {
+			color-scheme: dark;
+			color: white;
 			position: absolute;
 			inset: 0 auto auto 0;
 			inline-size: fit-content;
 			padding: .4em .7em;
-			background-color: #1118;
+			background-color: #111a;
 			border-radius: .3em;
 			margin: .5em;
+			accent-color: white;
+
+			:is(input)[type=checkbox]#toggle-overlay:not(:checked) ~ & > .cog {
+				display: none;
+			}
+
+			:is(input)[type=checkbox]#toggle-overlay:checked ~ & > :not(.cog) {
+				display: none;
+			}
+		}
+
+		.settings {
+			& > div {
+				display: flex;
+				flex-wrap: wrap;
+				align-items: center;
+				gap: .3rem;
+
+				& input[type=range] {
+					flex-grow: 1;
+				}
+
+				& [id] {
+					font-family: monospace;
+					white-space: pre-wrap;
+					font-size: 1.2em;
+				}
+			}
+		}
+
+		.camera-controls {
+			position: absolute;
+			inset: auto auto 0 0;
+			margin: .5rem;
+			display: grid;
+			gap: .5rem;
+			grid-template: repeat(2, 1fr) / repeat(3, 1fr);
+
+			& button.move {
+				position: relative;
+				background-color: #222e;
+				border: 1px solid #8884;
+				border-radius: .4rem;
+				box-sizing: border-box;
+				inline-size: 3rem;
+				aspect-ratio: 1;
+				display: grid;
+				place-content: center;
+
+				&.active {
+					background-color: #111;
+				}
+
+				& kbd {
+					position: absolute;
+					--inset: -.3rem;
+					inset-block-end: var(--inset);
+					inset-inline-end: var(--inset);
+					background-color: #111;
+					border: 1px solid #8888;
+					border-radius: .3rem;
+					display: grid;
+					place-content: center;
+					aspect-ratio: 1;
+					block-size: 1.2rem;
+				}
+			}
 		}
 
 		canvas {
@@ -56,6 +153,7 @@
 			flex-basis: 0;
 			min-block-size: 0;
 			background-color: black;
+			image-rendering: pixelated;
 		}
 	</style>
 </head>
@@ -66,8 +164,59 @@
 		<hr />
 	</noscript>
 
-	<div class="info-overlay">
-		Use W/A/S/D/Q/E to move the camera and arrow keys to pan.
+	<input type="checkbox" class="hidden" aria-label="Toggle overlay" id="toggle-overlay">
+	<div class="overlay">
+		<label class="cog" for="toggle-overlay">⚙&#xFE0F;</label>
+
+		<div class="info">
+			Use W/A/S/D/Q/E to move the camera and arrow keys to pan. <label for="toggle-overlay">&Cross;&#xFE0F;</label>
+		</div>
+
+		<div class="settings">
+			<div>
+				<span>Max bounces: <span id="max-bounces"></span></span>
+				<input type="range" id="max-bounces-slider" min="1" max="10" />
+			</div>
+			<div>
+				<span>Antialiasing: Samples per pixel: <span id="antialiasing-samples-per-pixel"></span></span>
+				<input type="range" id="antialiasing-samples-per-pixel-slider" min="1" max="6" />
+			</div>
+			<div>
+				<span>Field of view: <span id="field-of-view"></span></span>
+				<input type="range" id="field-of-view-slider" min="5" max="170" />
+			</div>
+			<div>
+				<span>Device pixels per canvas pixel: <span id="resolution"></span></span>
+				<input type="range" id="resolution-slider" min="1" max="10" />
+			</div>
+		</div>
+	</div>
+
+	<div class="camera-controls">
+		<button class="move" id="move-down" title="Move down">
+			<div>⇣</div>
+			<kbd>Q</kbd>
+		</button>
+		<button class="move" id="move-forward" title="Move forward">
+			<div>↑</div>
+			<kbd>W</kbd>
+		</button>
+		<button class="move" id="move-up" title="Move up">
+			<div>⇡</div>
+			<kbd>E</kbd>
+		</button>
+		<button class="move" id="move-left" title="Move left">
+			<div>←</div>
+			<kbd>A</kbd>
+		</button>
+		<button class="move" id="move-backward" title="Move backward">
+			<div>↓</div>
+			<kbd>S</kbd>
+		</button>
+		<button class="move" id="move-right" title="Move right">
+			<div>→</div>
+			<kbd>D</kbd>
+		</button>
 	</div>
 
 	<canvas></canvas>

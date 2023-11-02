@@ -3,7 +3,7 @@ alias float2 = vec2<f32>;
 alias float3 = vec3<f32>;
 alias float4 = vec4<f32>;
 
-alias color = float3;
+alias Color = float3;
 
 alias ObjectType = u32;
 const e_CAMERA: ObjectType = 0;
@@ -15,6 +15,8 @@ struct Uniforms {
 	canvas_dimensions: float2,
 	light_theme: u32,
 	fov_scale: f32,
+	max_bounces: u32,
+	antialiasing_samples: u32,
 }
 
 struct VertexOutput {
@@ -52,21 +54,21 @@ struct HitInfo {
 	color: float3,
 }
 
-@group(0) @binding(0) var<uniform> uniforms: Uniforms;
+@group(0) @binding(0) var<storage> uniforms: Uniforms;
 
-const white: float3 = float3(1.0, 1.0, 1.0);
-const black: float3 = float3(0.0, 0.0, 0.0);
-const spheres = array<Sphere, 6>(
-	Sphere(float3(0.0, 0.0, 3.0), 1.0, float3(1.0, 0.0, 0.0)),
-	Sphere(float3(2.0, 2.0, 3.0), 0.6, float3(0.0, 1.0, 0.0)),
-	Sphere(float3(2.0, -2.0, 4.0), 1.5, float3(0.0, 0.0, 1.0)),
-	Sphere(float3(-1.0, 0.0, 5.0), 1.1, float3(1.0, 1.0, 0.0)),
-	Sphere(float3(2.0, 1.0, 5.0), 0.8, float3(0.0, 1.0, 1.0)),
-	Sphere(float3(2.0, -1.0, 1.0), 0.9, float3(1.0, 0.0, 1.0)),
+const white = Color(1.0, 1.0, 1.0);
+const black = Color(0.0, 0.0, 0.0);
+const spheres = array<Sphere, 7>(
+	Sphere(float3(0.0, 0.0, 3.0), 1.0, Color(1.0, 0.5, 0.5)),
+	Sphere(float3(2.0, 2.0, 3.0), 0.6, Color(0.5, 1.0, 0.5)),
+	Sphere(float3(2.0, -2.0, 4.0), 1.5, Color(0.5, 0.5, 1.0)),
+	Sphere(float3(-1.0, 0.0, 5.0), 1.1, Color(1.0, 1.0, 0.5)),
+	Sphere(float3(2.0, 1.0, 5.0), 0.8, Color(0.5, 1.0, 1.0)),
+	Sphere(float3(2.0, -1.0, 1.0), 0.9, Color(1.0, 0.5, 1.0)),
+	Sphere(float3(1.0, 0.0, 7.0), 1.4, Color(1.0, 1.0, 1.0)),
 );
 const floor_height: f32 = 0.0;
-const antialiasing_samples: u32 = 2;
-const max_bounces: u32 = 5;
+const sky_color = Color(0.4, 0.6, 1.0);
 
 @vertex
 fn vertex_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
@@ -110,9 +112,9 @@ fn get_camera_ray_direction(rotation: float2, pixel_position: float2) -> float3 
 	return normalize(main_camera_vector + horizontal_vector_component + vertical_vector_component);
 }
 
-fn fade_color(color: float3, distance: f32) -> float3 {
-	var factor: f32 = pow(0.9, distance);
-	return mix(select(black, white, bool(uniforms.light_theme)), color, factor);
+fn fade_color(color: Color, distance: f32) -> Color {
+	var factor: f32 = exp2(-distance / 50.0);
+	return mix(sky_color, color, factor);
 }
 
 fn ray_hits_sphere(ray: Ray, sphere: Sphere) -> HitInfo {
@@ -137,22 +139,25 @@ fn ray_hits_sphere(ray: Ray, sphere: Sphere) -> HitInfo {
 	}
 }
 
-fn trace_ray(ray: Ray) -> color {
+fn trace_ray(ray: Ray) -> Color {
 	var current_ray_info = RayInfo(ray, ObjectInfo(e_CAMERA, 0));
-	for (var bounce_iteration: u32 = 0; bounce_iteration < max_bounces; bounce_iteration++) {
+	var color = Color(1.0, 1.0, 1.0);
+	for (var bounce_iteration: u32 = 0; bounce_iteration < uniforms.max_bounces; bounce_iteration++) {
 		let current_ray = current_ray_info.ray;
 		var closest_hit = HitInfo();
 		closest_hit.did_hit = false;
 
 		var object_info = ObjectInfo();
+		var current_color: float3;
 
-		for (var i: u32 = 0; i < 6; i++) {
+		for (var i: u32 = 0; i < 7; i++) {
 			if (current_ray_info.source_object.object_type == e_SPHERE && current_ray_info.source_object.index == i) { continue; }
 			let sphere = spheres[i];
 			let hit_info = ray_hits_sphere(current_ray, sphere);
 			if hit_info.did_hit && (!closest_hit.did_hit || bool(hit_info.distance < closest_hit.distance)) {
 				closest_hit = hit_info;
 				object_info = ObjectInfo(e_SPHERE, i);
+				current_color = sphere.color;
 			}
 		}
 
@@ -160,25 +165,27 @@ fn trace_ray(ray: Ray) -> color {
 			if (closest_hit.did_hit) {
 				let specular_ray: Ray = Ray(closest_hit.position, reflect(current_ray.dir, closest_hit.normal_vector));
 				current_ray_info = RayInfo(specular_ray, object_info);
+				color *= current_color;
 			} else {
 				let floorDistance: f32 = (floor_height - current_ray.origin.z) / current_ray.dir.z;
 				if (floorDistance > 0) {
 					let intersection_point: float3 = current_ray.origin + floorDistance * current_ray.dir;
-					var color: float3 = fade_color(select(black, white, bool((i32(floor(intersection_point.x)) + i32(floor(intersection_point.y))) % 2)), floorDistance);
-					return color;
+					var chessboard_color: Color = fade_color(select(black, white, bool((i32(floor(intersection_point.x)) + i32(floor(intersection_point.y))) % 2)), floorDistance);
+					return color * chessboard_color;
 				} else {
-					return select(black, white, bool(uniforms.light_theme));
+					return color * mix(sky_color, white, dot(current_ray.dir, Color(0.0, 0.0, 1.0)));
 				}
 			}
 		}
 	}
-	return select(black, white, bool(uniforms.light_theme));
+	return color * sky_color;
 }
 
-@fragment
-fn fragment_main(@location(0) fragment_position: float2) -> @location(0) float4 {
 
-	var pixel_colors: array<float3, antialiasing_samples * antialiasing_samples>;
+@fragment
+fn fragment_main(@location(0) fragment_position: float2, @builtin(sample_index) sample_index: u32) -> @location(0) float4 {
+	let antialiasing_samples: u32 = uniforms.antialiasing_samples;
+	var summed_color = Color(0.0, 0.0, 0.0);
 
 	for (var antialiasing_row: u32 = 0; antialiasing_row < antialiasing_samples; antialiasing_row++) {
 		for (var antialiasing_column: u32 = 0; antialiasing_column < antialiasing_samples; antialiasing_column++) {
@@ -192,16 +199,12 @@ fn fragment_main(@location(0) fragment_position: float2) -> @location(0) float4 
 			);
 
 			let color = trace_ray(ray);
-			pixel_colors[antialiasing_row * antialiasing_samples + antialiasing_column] = color;
+			summed_color += color;
 		}
 	}
 
 	{
-		var pixel_colors_sum: float3;
-		for (var i: u32 = 0; i < antialiasing_samples * antialiasing_samples; i++) {
-			pixel_colors_sum += pixel_colors[i];
-		}
-		return float4(pixel_colors_sum / f32(antialiasing_samples * antialiasing_samples), 1.0);
+		return float4(summed_color / f32(antialiasing_samples * antialiasing_samples), 1.0);
 	}
 }
 
