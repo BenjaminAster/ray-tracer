@@ -1,0 +1,32 @@
+{
+	"name": "Ray Tracer",
+	"description": "A WebGPU ray tracer",
+	"start_url": "./",
+	"scope": "./",
+	"background_color": "#2f3034",
+	"display": "standalone",
+	"icons": [
+		{
+			"src": "./assets/icon.png",
+			"type": "image/png",
+			"sizes": "512x512",
+			"purpose": "any monochrome"
+		}
+	],
+	"screenshots": [
+		{
+			"src": "./assets/screenshot.png",
+			"type": "image/png",
+			"sizes": "1920x1080",
+			"label": "A screenshot of the ray tracer rendering colorful mirror spheres hoverhing above a large checkerboard floor",
+			"form_factor": "wide"
+		},
+		{
+			"src": "./assets/screenshot.png",
+			"type": "image/png",
+			"sizes": "1920x1080",
+			"label": "A screenshot of the ray tracer rendering colorful mirror spheres hoverhing above a large checkerboard floor",
+			"form_factor": "narrow"
+		}
+	]
+}

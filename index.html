@@ -6,186 +6,23 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content" />
 	<meta name="robots" content="all" />
 	<meta name="author" content="Benjamin Aster" />
-	<meta name="description" content="A WebGPU ray tracer" />
-	<!-- <meta name="repository" content="https://github.com/BenjaminAster/REPOSITORY" /> -->
-	<!-- <meta property="og:image" content="https://benjaminaster.com/NAME/assets/icon.png" /> -->
+	<meta name="description" content="A ray tracer made with WebGPU" />
+	<meta name="repository" content="https://github.com/BenjaminAster/ray-tracer" />
+	<meta property="og:image" content="https://benjaminaster.com/ray-tracer/assets/screenshot.png" />
+	<meta property="twitter:card" content="summary_large_image" />
 
-	<!-- <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" sizes="512x512" /> -->
-	<!-- <link rel="icon" href="./assets/icon.png" type="image/png" sizes="any" /> -->
-	<!-- <link rel="manifest" href="./app.webmanifest" /> -->
+	<link rel="icon" href="./assets/icon.svg" type="image/svg+xml" sizes="any" />
+	<link rel="icon" href="./assets/icon.png" type="image/png" sizes="512x512" />
+	<link rel="manifest" href="./app.webmanifest" />
 
 	<title>WebGPU Ray Tracer</title>
 
-	<!-- <link rel="stylesheet" href="./main.css" /> -->
+	<link rel="stylesheet" href="./style.css" />
 
 	<script type="module" src="./script.js"></script>
 	<link rel="prefetch" as="worker" href="./worker.js" />
 	<link rel="prefetch" as="fetch" href="./shader.wgsl" />
-
-	<style>
-		:root {
-			color-scheme: dark light;
-			font-family: system-ui, sans-serif;
-			line-height: 1.5;
-			overflow-wrap: break-word;
-			-webkit-text-size-adjust: none;
-			text-size-adjust: none;
-			-webkit-tap-highlight-color: transparent;
-			cursor: var(--cursor, default);
-		}
-
-		body {
-			box-sizing: border-box;
-			min-block-size: 100dvb;
-			margin: 0;
-			display: flex;
-			flex-direction: column;
-		}
-
-		.hidden {
-			position: absolute;
-			appearance: none;
-			overflow: hidden;
-			width: 0;
-			height: 0;
-			opacity: 0;
-			pointer-events: none;
-		}
-
-		button {
-			all: unset;
-			outline: revert;
-		}
-
-		button, label {
-			cursor: pointer;
-		}
-
-		a {
-			color: inherit;
-		}
-
-		input[type=range] {
-			cursor: grab;
-
-			&:active {
-				cursor: grabbing;
-			}
-		}
-
-		.overlay {
-			color-scheme: dark;
-			color: white;
-			position: absolute;
-			inset: 0 auto auto 0;
-			inline-size: fit-content;
-			padding: .4rem .7rem;
-			background-color: #111a;
-			border-radius: .3em;
-			margin: .5em;
-			accent-color: white;
-
-			:is(input)[type=checkbox]#toggle-overlay:not(:checked) ~ & > .cog {
-				display: none;
-			}
-
-			:is(input)[type=checkbox]#toggle-overlay:checked ~ & > :not(.cog) {
-				display: none;
-			}
-		}
-
-		#webgpu-unsupported {
-			padding: .5rem;
-			border: 1px solid red;
-			margin-block: .3rem;
-			background-color: #0005;
-			border-radius: .3rem;
-		}
-
-		.settings {
-			& > div {
-				display: flex;
-				flex-wrap: wrap;
-				align-items: center;
-				gap: .3rem;
-
-				& input[type=range] {
-					flex-grow: 1;
-				}
-
-				& [id] {
-					font-family: monospace;
-					white-space: pre-wrap;
-					font-size: 1.2em;
-				}
-			}
-		}
-
-		.bottom-bar {
-			position: absolute;
-			pointer-events: none;
-			display: flex;
-			justify-content: space-between;
-			flex-wrap: wrap;
-			align-items: end;
-			inset: auto 0 0 0;
-
-			& footer {
-				padding: .1em .4em;
-				pointer-events: auto;
-				background-color: #000b;
-				border-start-start-radius: .3rem;
-			}
-		}
-
-		.camera-controls {
-			/* position: absolute; */
-			/* inset: auto auto 0 0; */
-			margin: .5rem;
-			display: grid;
-			gap: .5rem;
-			grid-template: repeat(2, 1fr) / repeat(3, 1fr);
-
-			& button.move {
-				pointer-events: auto;
-				position: relative;
-				background-color: #222e;
-				border: 1px solid #8884;
-				border-radius: .4rem;
-				box-sizing: border-box;
-				inline-size: 3rem;
-				aspect-ratio: 1;
-				display: grid;
-				place-content: center;
-
-				&.active {
-					background-color: #111;
-				}
-
-				& kbd {
-					position: absolute;
-					--inset: -.3rem;
-					inset-block-end: var(--inset);
-					inset-inline-end: var(--inset);
-					background-color: #111;
-					border: 1px solid #8888;
-					border-radius: .3rem;
-					display: grid;
-					place-content: center;
-					aspect-ratio: 1;
-					block-size: 1.2rem;
-				}
-			}
-		}
-
-		canvas {
-			flex-grow: 1;
-			flex-basis: 0;
-			min-block-size: 0;
-			background-color: black;
-			image-rendering: pixelated;
-		}
-	</style>
+	<link rel="prefetch" as="fetch" href="./assets/hinterer-gosausee.jpeg" />
 </head>
 
 <body>
@@ -200,7 +37,7 @@
 
 		<div id="webgpu-unsupported" hidden>
 			Your browser does not fully support WebGPU. Please use a Chromium-based browser like Google Chrome or Microsoft Edge.
-			Also, note that WebGPU support on platforms other than Windows or MacOS is still experimental and might have to be enabled manually.
+			Also, note that WebGPU support on platforms other than Windows and MacOS is still experimental and might have to be enabled manually.
 		</div>
 
 		<div class="info">
@@ -209,11 +46,11 @@
 
 		<div class="settings">
 			<div>
-				<span>Max bounces: <span id="max-bounces"></span></span>
+				<span>Max light ray bounces: <span id="max-bounces"></span></span>
 				<input type="range" id="max-bounces-slider" min="1" max="10" />
 			</div>
 			<div>
-				<span>Antialiasing: Samples per pixel: <span id="antialiasing-samples-per-pixel"></span></span>
+				<span>Samples per pixel (antialiasing): <span id="antialiasing-samples-per-pixel"></span></span>
 				<input type="range" id="antialiasing-samples-per-pixel-slider" min="1" max="6" />
 			</div>
 			<div>

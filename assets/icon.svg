@@ -1,0 +1,36 @@
+<svg viewBox="0 0 480 480" xmlns="http://www.w3.org/2000/svg">
+	<style>
+		:root {
+			color-scheme: dark light;
+			--sphere: cornflowerblue;
+			--lightray: gold;
+		}
+
+		@media (prefers-color-scheme: light) {
+			:root {
+				--sphere: royalblue;
+				--lightray: darkorange;
+			}
+		}
+
+		.sphere {
+			fill: var(--sphere);
+		}
+
+		.lightray {
+			fill: none;
+			stroke: var(--lightray);
+			stroke-width: 30;
+			stroke-linecap: round;
+			stroke-linejoin: round;
+		}
+	</style>
+
+	<circle class="sphere" cx="480" cy="240" r="240" />
+
+	<line class="lightray" x1="15" y1="240" x2="255" y2="-15" />
+	<polyline class="lightray" points="15 240, 255 120, 15 0" />
+	<line class="lightray" x1="15" y1="240" x2="225" y2="240" />
+	<polyline class="lightray" points="15 240, 255 360, 15 480" />
+	<line class="lightray" x1="15" y1="240" x2="255" y2="495" />
+</svg>

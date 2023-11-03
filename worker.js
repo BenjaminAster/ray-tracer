@@ -9,6 +9,16 @@ const _expose = (objects) => {
 	}
 }
 
+// const imageBitmapToPixelArray = (/** @type {ImageBitmap} */ bitmap) => {
+// 	const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+// 	const context = canvas.getContext("2d");
+// 	context.drawImage(bitmap, 0, 0);
+// 	const imageData = context.getImageData(0, 0, bitmap.width, bitmap.height);
+// 	return imageData.data;
+// };
+
+const loadImageToBitmap = async (/** @type {string} */ source) => await self.createImageBitmap(await (await self.fetch(source)).blob());
+
 const initialSeed = Math.random();
 
 const randomBySeed = (/** @type {number} */ a) => {
@@ -25,6 +35,8 @@ let fieldOfView = 0;
 let maxBounces = 5;
 let antialiasingSamplesPerPixel = 2;
 let pixelRatio = 1;
+
+let running = true;
 
 let /** @type {Set<string>} */ pressedKeys = new Set();
 let /** @type {Set<string>} */ currentMoveDirections = new Set();
@@ -59,6 +71,10 @@ await new Promise((resolve) => self.addEventListener("message", ({ data }) => {
 		({ antialiasingSamplesPerPixel } = data);
 	} else if (data.type === "set-field-of-view") {
 		({ fieldOfView } = data);
+	} else if (data.type === "pause-drawing") {
+		running = false;
+	} else if (data.type === "resume-drawing") {
+		running = true;
 	}
 }));
 
@@ -70,6 +86,7 @@ const { adapter, device } = await (async () => {
 	} catch (error) {
 		console.error(error);
 	};
+	return {};
 })();
 
 if (!device) {
@@ -133,8 +150,21 @@ const spheresBuffer = device.createBuffer({
 
 const uniformBuffer = device.createBuffer({
 	size: uniformBufferSize,
-	usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+	usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 });
+
+const photoSphereBitmap = await loadImageToBitmap(import.meta.resolve("./assets/hinterer-gosausee.jpeg"));
+
+const photoSphereTexture = device.createTexture({
+	size: [photoSphereBitmap.width, photoSphereBitmap.height],
+	format: 'rgba8unorm',
+	usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
+});
+
+// const photoSphereSampler = device.createSampler({
+// 	magFilter: "linear",
+// 	minFilter: "linear",
+// });
 
 const shaderPath = import.meta.resolve("./shader.wgsl");
 
@@ -173,6 +203,10 @@ const bindGroup = device.createBindGroup({
 				buffer: spheresBuffer,
 			},
 		},
+		{
+			binding: 2,
+			resource: photoSphereTexture.createView(),
+		},
 	],
 });
 
@@ -183,88 +217,98 @@ context.configure({
 	format,
 });
 
+device.queue.copyExternalImageToTexture(
+	{ source: photoSphereBitmap, flipY: true },
+	{ texture: photoSphereTexture },
+	{ width: photoSphereBitmap.width, height: photoSphereBitmap.height },
+);
+
 {
 	let previousTimestamp = performance.now();
 
 	const frame = (/** @type {DOMHighResTimeStamp} */ timestamp) => {
 
-		const delta = timestamp - previousTimestamp;
+		if (running) {
+			const delta = timestamp - previousTimestamp;
 
-		{
-			const anglePerDelta = Math.PI / 180 / 10;
-			if (pressedKeys.has("ArrowLeft")) cameraRotation[0] += anglePerDelta * delta;
-			else if (pressedKeys.has("ArrowRight")) cameraRotation[0] -= anglePerDelta * delta;
-
-			if (pressedKeys.has("ArrowUp")) cameraRotation[1] += anglePerDelta * delta;
-			else if (pressedKeys.has("ArrowDown")) cameraRotation[1] -= anglePerDelta * delta;
-		}
-
-		{
-			const speedPerDelta = .005;
-			if (pressedKeys.has("q") || currentMoveDirections.has("down")) cameraPosition[2] -= speedPerDelta * delta;
-			else if (pressedKeys.has("e") || currentMoveDirections.has("up")) cameraPosition[2] += speedPerDelta * delta;
-
-			if (pressedKeys.has("w") || currentMoveDirections.has("forward")) {
-				cameraPosition[0] += Math.cos(cameraRotation[0]) * speedPerDelta * delta;
-				cameraPosition[1] += Math.sin(cameraRotation[0]) * speedPerDelta * delta;
-			} else if (pressedKeys.has("s") || currentMoveDirections.has("backward")) {
-				cameraPosition[0] -= Math.cos(cameraRotation[0]) * speedPerDelta * delta;
-				cameraPosition[1] -= Math.sin(cameraRotation[0]) * speedPerDelta * delta;
-			}
-
-			if (pressedKeys.has("a") || currentMoveDirections.has("left")) {
-				cameraPosition[0] -= Math.sin(cameraRotation[0]) * speedPerDelta * delta;
-				cameraPosition[1] += Math.cos(cameraRotation[0]) * speedPerDelta * delta;
-			} else if (pressedKeys.has("d") || currentMoveDirections.has("right")) {
-				cameraPosition[0] += Math.sin(cameraRotation[0]) * speedPerDelta * delta;
-				cameraPosition[1] -= Math.cos(cameraRotation[0]) * speedPerDelta * delta;
-			}
-		}
-
-		{
 			{
-				const buffer = mergeTypedArrays(
-					new Float32Array([...cameraPosition]),
-					new Float32Array([...cameraRotation]),
-					new Float32Array([canvas.width, canvas.height]),
-					new Uint32Array([+lightTheme]),
-					new Float32Array([Math.tan(fieldOfView / 2) * 2]),
-					new Uint32Array([maxBounces]),
-					new Uint32Array([antialiasingSamplesPerPixel]),
-				);
-				device.queue.writeBuffer(uniformBuffer, 0, buffer);
+				const anglePerDelta = Math.PI / 180 / 10;
+				if (pressedKeys.has("ArrowLeft")) cameraRotation[0] += anglePerDelta * delta;
+				else if (pressedKeys.has("ArrowRight")) cameraRotation[0] -= anglePerDelta * delta;
+
+				if (pressedKeys.has("ArrowUp")) cameraRotation[1] += anglePerDelta * delta;
+				else if (pressedKeys.has("ArrowDown")) cameraRotation[1] -= anglePerDelta * delta;
 			}
 
 			{
-				for (let i = 0; i < spheres.length; i++) {
-					const sphere = self.structuredClone(spheres[i]);
-					sphere.position[2] += Math.sin((timestamp + 100) * (1 + randomBySeed(i)) / 1000);
-					const buffer = new Float32Array([
-						...sphere.position,
-						sphere.radius,
-						...sphere.color,
-					]);
-					device.queue.writeBuffer(spheresBuffer, i * sphereByteSize, buffer);
+				const speedPerDelta = .01;
+				if (pressedKeys.has("q") || currentMoveDirections.has("down")) cameraPosition[2] -= speedPerDelta * delta;
+				else if (pressedKeys.has("e") || currentMoveDirections.has("up")) cameraPosition[2] += speedPerDelta * delta;
+
+				if (pressedKeys.has("w") || currentMoveDirections.has("forward")) {
+					cameraPosition[0] += Math.cos(cameraRotation[0]) * speedPerDelta * delta;
+					cameraPosition[1] += Math.sin(cameraRotation[0]) * speedPerDelta * delta;
+				} else if (pressedKeys.has("s") || currentMoveDirections.has("backward")) {
+					cameraPosition[0] -= Math.cos(cameraRotation[0]) * speedPerDelta * delta;
+					cameraPosition[1] -= Math.sin(cameraRotation[0]) * speedPerDelta * delta;
+				}
+
+				if (pressedKeys.has("a") || currentMoveDirections.has("left")) {
+					cameraPosition[0] -= Math.sin(cameraRotation[0]) * speedPerDelta * delta;
+					cameraPosition[1] += Math.cos(cameraRotation[0]) * speedPerDelta * delta;
+				} else if (pressedKeys.has("d") || currentMoveDirections.has("right")) {
+					cameraPosition[0] += Math.sin(cameraRotation[0]) * speedPerDelta * delta;
+					cameraPosition[1] -= Math.cos(cameraRotation[0]) * speedPerDelta * delta;
 				}
 			}
 
-			const encoder = device.createCommandEncoder();
-			const renderPass = encoder.beginRenderPass({
-				colorAttachments: [{
-					view: context.getCurrentTexture().createView(),
-					loadOp: "clear",
-					clearValue: [0, 0, 0, 0],
-					storeOp: "store",
-				}],
-			});
+			{
+				{
+					const buffer = mergeTypedArrays(
+						new Float32Array([...cameraPosition]),
+						new Float32Array([...cameraRotation]),
+						new Float32Array([canvas.width, canvas.height]),
+						new Uint32Array([+lightTheme]),
+						new Float32Array([Math.tan(fieldOfView / 2) * 2]),
+						new Uint32Array([maxBounces]),
+						new Uint32Array([antialiasingSamplesPerPixel]),
+					);
+					device.queue.writeBuffer(uniformBuffer, 0, buffer);
+				}
 
-			renderPass.setPipeline(pipeline);
-			renderPass.setBindGroup(0, bindGroup);
-			renderPass.draw(4);
-			renderPass.end();
+				{
+					for (let i = 0; i < spheres.length; i++) {
+						const sphere = self.structuredClone(spheres[i]);
+						sphere.position[2] += Math.sin((timestamp + 100) * (1 + randomBySeed(i)) / 1000);
+						const buffer = new Float32Array([
+							...sphere.position,
+							sphere.radius,
+							...sphere.color,
+						]);
+						device.queue.writeBuffer(spheresBuffer, i * sphereByteSize, buffer);
+					}
+				}
 
-			device.queue.submit([encoder.finish()]);
+				const encoder = device.createCommandEncoder();
+				const renderPass = encoder.beginRenderPass({
+					colorAttachments: [{
+						view: context.getCurrentTexture().createView(),
+						loadOp: "clear",
+						clearValue: [0, 0, 0, 0],
+						storeOp: "store",
+					}],
+				});
+
+				renderPass.setPipeline(pipeline);
+				renderPass.setBindGroup(0, bindGroup);
+				renderPass.draw(4);
+				renderPass.end();
+
+				device.queue.submit([encoder.finish()]);
+			}
 		}
+
+		// fetch("?" + running)
 
 		previousTimestamp = timestamp;
 

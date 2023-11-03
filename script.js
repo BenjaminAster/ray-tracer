@@ -183,4 +183,14 @@ worker.postMessage({ type: "initialize", canvas: offscreenCanvas, pixelRatio: wi
 	updateResolution();
 }
 
+{
+	document.addEventListener("visibilitychange", () => {
+		if (document.visibilityState === "visible") {
+			worker.postMessage({ type: "resume-drawing" });
+		} else {
+			worker.postMessage({ type: "pause-drawing" });
+		}
+	});
+}
+
 export { };

@@ -5,11 +5,13 @@ alias float4 = vec4<f32>;
 
 alias Color = float3;
 
+const PI = radians(180);
+
 alias ObjectType = u32;
 const e_CAMERA: ObjectType = 0;
 const e_SPHERE: ObjectType = 1;
 
-struct Uniforms {
+struct GlobalState {
 	camera_position: float3,
 	camera_rotation: float2,
 	canvas_dimensions: float2,
@@ -49,16 +51,18 @@ struct HitInfo {
 	distance: f32,
 	position: float3,
 	normal_vector: float3,
-	// object: ObjectInfo,
 	did_hit: bool,
 	color: float3,
 }
 
 const BINDING_GLOBAL_STATE: u32 = 0;
 const BINDING_SPHERES: u32 = 1;
+const BINDING_PHOTO_SPHERE: u32 = 2;
 
-@group(0) @binding(BINDING_GLOBAL_STATE) var<storage, read> global_state: Uniforms;
-@group(0) @binding(BINDING_SPHERES) var<storage, read> spheres: array<Sphere>;
+@group(0) @binding(BINDING_GLOBAL_STATE) var<uniform> global_state: GlobalState;
+@group(0) @binding(BINDING_SPHERES) var<storage> spheres: array<Sphere>;
+
+@group(0) @binding(BINDING_PHOTO_SPHERE) var photo_sphere: texture_2d<f32>;
 
 const white = Color(1.0, 1.0, 1.0);
 const black = Color(0.0, 0.0, 0.0);
@@ -134,6 +138,15 @@ fn ray_hits_sphere(ray: Ray, sphere: Sphere) -> HitInfo {
 	}
 }
 
+fn photo_sphere_pixel_from_direction(texture: texture_2d<f32>, direction: float3) -> Color {
+	// https://en.wikipedia.org/wiki/UV_mapping#Finding_UV_on_a_sphere
+	let coordinates: float2 = float2(
+		0.5 + (atan2(direction.x, direction.y) / (2 * PI)),
+		0.5 + (asin(direction.z) / PI),
+	);
+	return textureLoad(texture, vec2<u32>(coordinates * float2(textureDimensions(texture, 0))), 0).rgb;
+}
+
 fn trace_ray(ray: Ray) -> Color {
 	var current_ray_info = RayInfo(ray, ObjectInfo(e_CAMERA, 0));
 	var color = Color(1.0, 1.0, 1.0);
@@ -145,11 +158,11 @@ fn trace_ray(ray: Ray) -> Color {
 		var object_info = ObjectInfo();
 		var current_color: float3;
 
-		for (var i: u32 = 0; i < 7; i++) {
-			if (current_ray_info.source_object.object_type == e_SPHERE && current_ray_info.source_object.index == i) { continue; }
+		for (var i: u32 = 0; i < arrayLength(&spheres); i++) {
+			if current_ray_info.source_object.object_type == e_SPHERE && current_ray_info.source_object.index == i { continue; }
 			let sphere = spheres[i];
 			let hit_info = ray_hits_sphere(current_ray, sphere);
-			if hit_info.did_hit && (!closest_hit.did_hit || bool(hit_info.distance < closest_hit.distance)) {
+			if hit_info.did_hit && (!closest_hit.did_hit || hit_info.distance < closest_hit.distance) {
 				closest_hit = hit_info;
 				object_info = ObjectInfo(e_SPHERE, i);
 				current_color = sphere.color;
@@ -163,13 +176,17 @@ fn trace_ray(ray: Ray) -> Color {
 				color *= current_color;
 			} else {
 				let floorDistance: f32 = (floor_height - current_ray.origin.z) / current_ray.dir.z;
+				let photo_sphere_pixel = photo_sphere_pixel_from_direction(photo_sphere, current_ray.dir);
 				if (floorDistance > 0) {
 					let intersection_point: float3 = current_ray.origin + floorDistance * current_ray.dir;
-					var chessboard_color: Color = fade_color(select(black, white, bool((i32(floor(intersection_point.x)) + i32(floor(intersection_point.y))) % 2)), floorDistance);
-					return color * chessboard_color;
-				} else {
-					return color * mix(sky_color, white, dot(current_ray.dir, Color(0.0, 0.0, 1.0)));
+					if bool((i32(floor(intersection_point.x)) + i32(floor(intersection_point.y))) % 2) {
+						// var factor: f32 = exp2(-floorDistance / 50.0);
+						var factor: f32 = exp2(-distance(intersection_point.xy, global_state.camera_position.xy) / 50.0);
+						return color * mix(photo_sphere_pixel, white, factor);
+					}
 				}
+
+				return color * photo_sphere_pixel;
 			}
 		}
 	}
@@ -181,6 +198,13 @@ fn trace_ray(ray: Ray) -> Color {
 fn fragment_main(@location(0) fragment_position: float2, @builtin(sample_index) sample_index: u32) -> @location(0) float4 {
 	let antialiasing_samples: u32 = global_state.antialiasing_samples;
 	var summed_color = Color(0.0, 0.0, 0.0);
+
+	// _ = float4(textureSample(photo_sphere, photo_sphere_sampler, (fragment_position + 1.0) / 2.0).rgb, 1.0);
+
+	// // // return float4(textureLoad(photo_sphere, (fragment_position + 1.0) / 2.0, 0).rgb, 1.0);
+	// if fragment_position.x >= -.8 {
+	// 	return float4(textureLoad(photo_sphere, vec2<u32>(((fragment_position + 1.0) / 2.0) * float2(textureDimensions(photo_sphere, 0))), 0).rgb, 1.0);
+	// }
 
 	for (var antialiasing_row: u32 = 0; antialiasing_row < antialiasing_samples; antialiasing_row++) {
 		for (var antialiasing_column: u32 = 0; antialiasing_column < antialiasing_samples; antialiasing_column++) {
@@ -198,8 +222,6 @@ fn fragment_main(@location(0) fragment_position: float2, @builtin(sample_index) 
 		}
 	}
 
-	{
-		return float4(summed_color / f32(antialiasing_samples * antialiasing_samples), 1.0);
-	}
+	return float4(summed_color / f32(antialiasing_samples * antialiasing_samples), 1.0);
 }
 
