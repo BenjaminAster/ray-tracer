@@ -28,9 +28,9 @@
 
 	<circle class="sphere" cx="480" cy="240" r="240" />
 
-	<line class="lightray" x1="15" y1="240" x2="255" y2="-15" />
-	<polyline class="lightray" points="15 240, 255 120, 15 0" />
-	<line class="lightray" x1="15" y1="240" x2="225" y2="240" />
-	<polyline class="lightray" points="15 240, 255 360, 15 480" />
-	<line class="lightray" x1="15" y1="240" x2="255" y2="495" />
+	<polyline class="lightray" points="15 240, 280 -15" />
+	<polyline class="lightray" points="15 240, 242 150, 170 -15" />
+	<polyline class="lightray" points="15 240, 225 240" />
+	<polyline class="lightray" points="15 240, 242 330, 170 495" />
+	<polyline class="lightray" points="15 240, 280 495" />
 </svg>

@@ -1,8 +1,5 @@
 
 
-/// <reference types="better-typescript" />
-/// <reference types="@webgpu/types" />
-
 const canvas = document.querySelector("canvas");
 
 canvas.width = canvas.clientWidth * window.devicePixelRatio;
@@ -68,46 +65,24 @@ worker.postMessage({ type: "initialize", canvas: offscreenCanvas, pixelRatio: wi
 
 	{
 		{
-			let mouseDown = false;
-			canvas.addEventListener("mousedown", (event) => {
+			let pointerDown = false;
+			canvas.addEventListener("pointerdown", (event) => {
 				if (event.buttons & 0b001) {
 					document.documentElement.style.setProperty("--cursor", "move");
-					mouseDown = true;
+					pointerDown = true;
 				}
 			});
-			window.addEventListener("mousemove", (event) => {
-				if (mouseDown) {
+			window.addEventListener("pointermove", (event) => {
+				if (pointerDown) {
 					worker.postMessage({ type: "pointer-moved", x: event.movementX, y: event.movementY });
 				}
 			});
-			window.addEventListener("mouseup", (event) => {
+			window.addEventListener("pointerup", () => {
 				document.documentElement.style.removeProperty("--cursor");
-				mouseDown = false;
+				pointerDown = false;
 			});
-		}
-
-		{
-			let prevTouchX = 0;
-			let prevTouchY = 0;
-			window.addEventListener("touchstart", (event) => {
-				if (event.touches.length === 1) {
-					prevTouchX = event.touches[0].clientX;
-					prevTouchY = event.touches[0].clientY;
-				}
-			});
-			canvas.addEventListener("touchmove", (event) => {
-				if (event.touches.length === 1) {
-					event.preventDefault();
-					let x = event.touches[0].clientX;
-					let y = event.touches[0].clientY;
-					worker.postMessage({ type: "pointer-moved", x: x - prevTouchX, y: y - prevTouchY });
-					prevTouchX = event.touches[0].clientX;
-					prevTouchY = event.touches[0].clientY;
-				}
-			}, { passive: false });
 		}
 	}
-
 }
 
 {
@@ -153,11 +128,17 @@ worker.postMessage({ type: "initialize", canvas: offscreenCanvas, pixelRatio: wi
 	const rangeInput = document.querySelector("input[type=range]#field-of-view-slider");
 	rangeInput.valueAsNumber = fieldOfView;
 	const updateMaxBounces = () => {
-		document.querySelector("#field-of-view").textContent = ((fieldOfView = rangeInput.valueAsNumber).toString() + "°").padEnd(4);
+		document.querySelector("#field-of-view").textContent = (Math.round(fieldOfView = rangeInput.valueAsNumber).toString() + "°").padEnd(4);
 		worker.postMessage({ type: "set-field-of-view", fieldOfView: fieldOfView * Math.PI / 180 });
 	}
 	rangeInput.addEventListener("input", updateMaxBounces);
 	updateMaxBounces();
+
+	canvas.addEventListener("wheel", (event) => {
+		event.preventDefault();
+		rangeInput.valueAsNumber += event.deltaY / 10;
+		updateMaxBounces();
+	}, { passive: false });
 }
 
 {

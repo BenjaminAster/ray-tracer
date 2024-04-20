@@ -1,6 +1,6 @@
 
 :root {
-	color-scheme: dark light;
+	color-scheme: dark;
 	font-family: system-ui, sans-serif;
 	line-height: 1.5;
 	overflow-wrap: break-word;
@@ -159,4 +159,5 @@ canvas {
 	flex-basis: 0;
 	min-block-size: 0;
 	background-color: black;
+	touch-action: none;
 }

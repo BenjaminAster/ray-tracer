@@ -1,8 +1,4 @@
 
-/// <reference no-default-lib="true" />
-/// <reference types="better-typescript/worker" />
-/// <reference types="@webgpu/types" />
-
 const _expose = (objects) => {
 	for (const [name, value] of Object.entries(objects)) {
 		globalThis[name] = value;
@@ -97,19 +93,19 @@ if (!device) {
 const context = canvas.getContext("webgpu");
 const format = navigator.gpu.getPreferredCanvasFormat();
 
-const roundToNextPowerOfTwo = (/** @type {number} */ number) => (2 ** (Math.ceil(Math.log2(number))));
+const roundToNextPowerOfTwo = (/** @type {number} */ number) => (1 << (Math.ceil(Math.log2(number))));
 
 const structBufferSize = (/** @type {number[]} */ ...sizes) => {
 	let size = sizes.reduce((prev, next) => prev + next, 0);
 	return roundToNextPowerOfTwo(size);
 };
 
-const mergeTypedArrays = (/** @type {ArrayBufferLike[]} */ ...arrays) => {
+const mergeTypedArrays = (/** @type {TypedArray[]} */ ...arrays) => {
 	const size = structBufferSize(...arrays.map(array => array.byteLength));
 	const buffer = new Uint8Array(size);
 	let offset = 0;
 	for (const array of arrays) {
-		buffer.set(new Uint8Array(/** @type {TypedArray} */(array).buffer || array), offset);
+		buffer.set(new Uint8Array(array.buffer), offset);
 		offset += roundToNextPowerOfTwo(array.byteLength);
 	}
 	return buffer.buffer;
@@ -176,11 +172,9 @@ const pipeline = await device.createRenderPipelineAsync({
 	layout: "auto",
 	vertex: {
 		module: shaderModule,
-		entryPoint: "vertex_main",
 	},
 	fragment: {
 		module: shaderModule,
-		entryPoint: "fragment_main",
 		targets: [{ format }],
 	},
 	primitive: {
